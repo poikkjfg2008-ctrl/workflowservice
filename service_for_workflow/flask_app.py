@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from flask import Flask, render_template, request, jsonify
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from config import Config
 from workflow_adapter import runworkflow, getflowinfo, resumeflow
@@ -13,93 +13,6 @@ from async_processor import async_processor
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = Config.SECRET_KEY
-
-# run_id -> snapshot
-_RUN_SNAPSHOT_CACHE: Dict[str, Dict[str, Any]] = {}
-
-
-# ============================================
-# 内部工具函数
-# ============================================
-
-def _session_for_run(run_id: str):
-    sessions = session_manager.get_all_sessions()
-    for session in reversed(sessions):
-        if session.current_run_id == run_id:
-            return session
-    return None
-
-
-def _normalize_steps(nodes: Dict[str, Any], steps: List[str]) -> List[str]:
-    if steps:
-        return steps
-    return list(nodes.keys())
-
-
-def _build_progress_info(run_id: str, workflow_info: Dict[str, Any]) -> Dict[str, Any]:
-    nodes = workflow_info.get('nodes', {}) or {}
-    steps = _normalize_steps(nodes, workflow_info.get('steps', []) or [])
-
-    prev = _RUN_SNAPSHOT_CACHE.get(run_id)
-    prev_nodes = (prev or {}).get('nodes', {})
-
-    status_changes = []
-    new_nodes = []
-
-    for node_id in nodes.keys():
-        if node_id not in prev_nodes:
-            new_nodes.append(node_id)
-
-        current_status = nodes.get(node_id, {}).get('status', 'pending')
-        previous_status = prev_nodes.get(node_id, {}).get('status')
-        if previous_status is not None and previous_status != current_status:
-            status_changes.append({
-                'nodeId': node_id,
-                'from': previous_status,
-                'to': current_status,
-                'nodeType': nodes.get(node_id, {}).get('nodeType', 'unknown')
-            })
-
-    total_count = len(steps)
-    completed_count = sum(
-        1 for node_id in steps
-        if nodes.get(node_id, {}).get('status') == 'success'
-    )
-    processing_nodes = [
-        node_id for node_id in steps
-        if nodes.get(node_id, {}).get('status') == 'processing'
-    ]
-
-    processing_count = len(processing_nodes)
-    current_node_id = processing_nodes[0] if processing_nodes else None
-
-    if total_count > 0:
-        current_step = completed_count + processing_count
-        percentage = int((current_step / total_count) * 100)
-    else:
-        # 外部服务仅返回部分节点时，使用变更驱动的“可观测进度”
-        observed = len(nodes)
-        percentage = min(95, int((completed_count / max(observed, 1)) * 100)) if observed else 0
-        current_step = completed_count + processing_count
-
-    progress_info = {
-        'current_step': current_step,
-        'total_steps': total_count,
-        'percentage': percentage,
-        'current_node': nodes.get(current_node_id, {}).get('nodeType', 'unknown') if current_node_id else 'unknown',
-        'nodes': [nodes.get(node_id, {}).get('nodeType', 'unknown') for node_id in steps],
-        'new_nodes_count': len(new_nodes),
-        'status_changes_count': len(status_changes),
-        'status_changes': status_changes[:5],
-        'is_partial_graph': len(steps) == 0 or len(steps) > len(nodes),
-    }
-
-    _RUN_SNAPSHOT_CACHE[run_id] = {
-        'nodes': deepcopy(nodes),
-        'steps': list(steps),
-        'status': workflow_info.get('status'),
-    }
-    return progress_info
 
 
 # ============================================
@@ -363,7 +276,11 @@ def main():
     print(f"⚙️  活跃任务: {async_processor.get_active_tasks_count()}")
     print("=" * 70)
 
-    app.run(host=Config.FLASK_HOST, port=Config.FLASK_PORT, debug=Config.FLASK_DEBUG)
+    app.run(
+        host=Config.FLASK_HOST,
+        port=Config.FLASK_PORT,
+        debug=Config.FLASK_DEBUG
+    )
 
 
 if __name__ == '__main__':
