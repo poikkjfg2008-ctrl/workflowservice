@@ -4,15 +4,15 @@ Flask Web应用 - 智能对话工作流系统
 """
 from flask import Flask, render_template, request, jsonify
 from typing import Dict, Any
-import asyncio
 
+from config import Config
 from workflow_adapter import runworkflow, getflowinfo, resumeflow
 from session_manager import session_manager, Session
 from async_processor import async_processor
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = Config.SECRET_KEY
 
 
 # ============================================
@@ -367,15 +367,15 @@ def main():
     print("=" * 70)
     print("🚀 Flask智能对话工作流系统启动中...")
     print("=" * 70)
-    print(f"📍 服务地址: http://0.0.0.0:5000")
+    print(f"📍 服务地址: http://{Config.FLASK_HOST}:{Config.FLASK_PORT}")
     print(f"📊 活跃会话: {len(session_manager.get_all_sessions())}")
     print(f"⚙️  活跃任务: {async_processor.get_active_tasks_count()}")
     print("=" * 70)
 
     app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=True
+        host=Config.FLASK_HOST,
+        port=Config.FLASK_PORT,
+        debug=Config.FLASK_DEBUG
     )
 
 
