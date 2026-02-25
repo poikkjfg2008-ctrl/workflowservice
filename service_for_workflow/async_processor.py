@@ -3,22 +3,23 @@
 """
 import asyncio
 import threading
-from typing import Dict, Optional, Callable, Any
+from typing import Dict, Optional, Callable
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 
 from workflow_adapter import getflowinfo
-from session_manager import Session, session_manager
+from config import Config
 
 
 class AsyncProcessor:
     """异步处理器"""
 
-    def __init__(self, max_workers: int = 10):
+    def __init__(self, max_workers: int = Config.MAX_ASYNC_WORKERS):
         self._tasks: Dict[str, Dict] = {}
         self._task_counter = 0
         self._lock = threading.Lock()
         self._loop = None
+        self._loop_ready = threading.Event()
+        self._poll_interval = Config.WORKFLOW_POLL_INTERVAL_SECONDS
         self._start_event_loop()
 
     def _start_event_loop(self):
@@ -26,9 +27,11 @@ class AsyncProcessor:
         def run_loop():
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
+            self._loop_ready.set()
             self._loop.run_forever()
 
         threading.Thread(target=run_loop, daemon=True).start()
+        self._loop_ready.wait(timeout=3)
 
     async def _run_task(self, task_id: str, session_id: str, run_id: str, callback: Optional[Callable]):
         """运行异步任务 - 轮询工作流状态"""
@@ -61,12 +64,12 @@ class AsyncProcessor:
                     # 如果是 processing 状态，继续轮询
                     elif status == 'processing':
                         # Processing 状态不需要回调，前端通过轮询获取进度
-                        await asyncio.sleep(1)  # 等待1秒后再次查询
+                        await asyncio.sleep(self._poll_interval)
 
                     else:
                         # 未知状态
                         print(f"[AsyncProcessor] 未知状态: {status}")
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(self._poll_interval)
 
                 except ValueError as e:
                     # run_id 不存在

@@ -104,6 +104,16 @@ class WorkflowService:
         # 第 4 次查询：确定最终状态
         return self._get_final_state(run_id, state)
 
+    def resume_workflow(self, user_input: str, run_id: str) -> None:
+        """恢复中断工作流，保持原 run_id。"""
+        if run_id not in self._workflow_states:
+            raise ValueError(f"Run ID {run_id} 不存在")
+
+        state = self._workflow_states[run_id]
+        state['status'] = WorkflowStatus.PROCESSING
+        state['query_count'] = 0
+        state['interrupt_msg'] = f"用户补充信息: {user_input}"
+
     def _get_processing_state(self, run_id: str, state: Dict[str, Any], query_count: int) -> Dict[str, Any]:
         """生成 processing 状态的响应"""
         nodes = state['nodes']

@@ -103,6 +103,31 @@ def check_workflow_mock():
         return False
 
 
+
+def check_workflow_adapter():
+    """验证workflow_adapter统一接口"""
+    print("检查 workflow_adapter.py...")
+
+    try:
+        from workflow_adapter import runworkflow, getflowinfo, resumeflow
+
+        run_id = runworkflow("测试适配器")
+        print(f"  ✓ runworkflow() 返回: {run_id}")
+
+        info = getflowinfo(run_id)
+        print(f"  ✓ getflowinfo() 状态: {info.get('status')}")
+
+        if info.get('status') == 'interrupted':
+            resumeflow("补充信息", run_id)
+            print("  ✓ resumeflow() 调用成功")
+
+        print("✓ workflow_adapter.py 验证通过\n")
+        return True
+
+    except Exception as e:
+        print(f"  ✗ 错误: {e}")
+        return False
+
 def check_flask_app():
     """验证flask_app.py可以正确导入"""
     print("检查 flask_app.py...")
@@ -245,6 +270,7 @@ def main():
     checks = [
         check_dependencies,
         check_workflow_mock,
+        check_workflow_adapter,
         check_flask_app,
         check_session_manager,
         check_async_processor,
