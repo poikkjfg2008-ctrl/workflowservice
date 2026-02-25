@@ -1,6 +1,4 @@
-"""
-会话管理器 - 简化版
-"""
+"""会话管理器 - 简化版"""
 import threading
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -24,6 +22,9 @@ class Session:
     waiting_for_input: bool = False
     interrupt_context: Optional[Dict[str, Any]] = None
     created_at: datetime = field(default_factory=datetime.now)
+    # 用于恢复流程的同步保护
+    resume_pending: bool = False
+    last_interrupt_msg: Optional[str] = None
 
     def add_message(self, role: str, content: str):
         """添加消息"""

@@ -5,964 +5,602 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智能对话工作流系统</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(140deg, #eef2ff 0%, #f7f4ff 100%);
+            color: #1f2937;
             min-height: 100vh;
-            padding: 20px;
+            padding: 16px;
         }
-
         .container {
-            max-width: 1400px;
+            max-width: 1520px;
             margin: 0 auto;
-            background: white;
             border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
+            background: #fff;
+            box-shadow: 0 20px 60px rgba(67, 56, 202, 0.16);
         }
-
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #fff;
+            padding: 20px 24px;
         }
+        .header h1 { font-size: 24px; margin-bottom: 6px; }
+        .header p { opacity: .92; }
 
-        .header h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            font-size: 16px;
-            opacity: 0.9;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 0;
-            min-height: 600px;
-        }
-
-        .chat-section {
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid #e0e0e0;
-        }
-
-        .chat-messages {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            background: #f8f9fa;
-            min-height: 400px;
-            max-height: 500px;
-        }
-
-        .message {
-            margin-bottom: 16px;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .message.user {
-            text-align: right;
-        }
-
-        .message.user .message-content {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            margin-left: auto;
-            max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 18px 18px 4px 18px;
-            display: inline-block;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-            line-height: 1.5;
-        }
-
-        .message.assistant .message-content {
-            background: white;
-            color: #333;
-            margin-right: auto;
-            max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 18px 18px 18px 4px;
-            display: inline-block;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            word-wrap: break-word;
-            white-space: pre-wrap;
-            line-height: 1.6;
-        }
-
-        .message-processing {
-            background: white;
-            margin-right: auto;
-            max-width: 70%;
-            padding: 16px 20px;
-            border-radius: 18px 18px 18px 4px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .processing-spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .processing-text {
-            flex: 1;
-        }
-
-        .processing-current-step {
-            font-weight: 600;
-            color: #667eea;
-            margin-bottom: 4px;
-        }
-
-        .processing-progress {
-            font-size: 13px;
-            color: #999;
-        }
-
-        .processing-progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #f0f0f0;
-            border-radius: 2px;
-            margin-top: 8px;
-            overflow: hidden;
-        }
-
-        .processing-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            transition: width 0.3s ease;
-        }
-
-        .message-input {
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        #messageInput {
-            flex: 1;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 24px;
-            font-size: 15px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-
-        #messageInput:focus {
-            border-color: #667eea;
-        }
-
-        #messageInput:disabled {
-            background: #f5f5f5;
-            cursor: not-allowed;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 24px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100.0);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-primary:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-secondary:hover {
-            background: #e0e0e0;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .info-panel {
-            padding: 20px;
-            background: #f8f9fa;
-            overflow-y: auto;
-        }
-
-        .info-card {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .info-card h3 {
-            font-size: 16px;
-            margin-bottom: 12px;
-            color: #667eea;
-        }
-
-        .info-card p {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .status-ready {
-            background: #4caf50;
-            color: white;
-        }
-
-        .status-processing {
-            background: #2196f3;
-            color: white;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .status-waiting {
-            background: #ff9800;
-            color: white;
-        }
-
-        .status-error {
-            background: #f44336;
-            color: white;
-        }
-
-        .welcome-message {
-            text-align: center;
-            color: #999;
-            margin-top: 100px;
-        }
-
-        .welcome-message .icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-        }
-
-        .workflow-progress {
-            background: white;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 12px;
-        }
-
-        .workflow-progress-header {
+        .main { display: grid; grid-template-columns: 2.35fr 1fr; min-height: 760px; }
+        .chat-panel { display: flex; flex-direction: column; border-right: 1px solid #e5e7eb; min-width: 0; }
+        .chat-toolbar {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .workflow-progress-title {
-            font-weight: 600;
-            color: #333;
-        }
-
-        .workflow-progress-percent {
-            font-size: 18px;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .workflow-progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #f0f0f0;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .workflow-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            transition: width 0.5s ease;
-        }
-
-        .workflow-steps {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 12px;
-            font-size: 12px;
-            color: #999;
-        }
-
-        .workflow-step {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .workflow-step.active {
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .workflow-step.completed {
-            color: #4caf50;
-        }
-
-        .node-details {
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 12px;
-            font-size: 12px;
-        }
-
-        .node-details-title {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .node-item {
-            display: flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 0;
-            border-bottom: 1px solid #f0f0f0;
+            padding: 10px 16px;
+            border-bottom: 1px solid #edf0f7;
+            background: #fafbff;
+            font-size: 13px;
         }
-
-        .node-item:last-child {
-            border-bottom: none;
+        .chat-toolbar .hint { color: #4b5563; }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
+        .welcome {
+            margin: auto;
+            text-align: center;
+            color: #64748b;
+        }
+        .welcome .icon { font-size: 56px; margin-bottom: 10px; }
 
-        .node-status-badge {
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 10px;
+        .message { display: flex; flex-direction: column; gap: 5px; }
+        .message.user { align-items: flex-end; }
+        .message.assistant { align-items: flex-start; }
+        .bubble {
+            max-width: min(92%, 960px);
+            padding: 12px 16px;
+            border-radius: 14px;
+            white-space: pre-wrap;
+            line-height: 1.68;
+            overflow-wrap: anywhere;
+            box-shadow: 0 2px 10px rgba(30, 41, 59, 0.08);
+        }
+        .user .bubble {
+            color: #fff;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-bottom-right-radius: 5px;
+        }
+        .assistant .bubble {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 5px;
+        }
+        .meta { font-size: 11px; color: #6b7280; }
+
+        .processing-card {
+            align-self: flex-start;
+            width: min(92%, 960px);
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 2px 10px rgba(30, 41, 59, 0.08);
+        }
+        .processing-title { font-weight: 600; color: #4338ca; margin-bottom: 8px; }
+        .bar { width: 100%; height: 6px; background: #edf2ff; border-radius: 99px; overflow: hidden; }
+        .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4f46e5, #7c3aed); transition: width .3s; }
+        .processing-sub { margin-top: 8px; font-size: 12px; color: #6b7280; }
+
+        .input-area {
+            position: sticky;
+            bottom: 0;
+            background: #fff;
+            border-top: 1px solid #e5e7eb;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .input-row { display: flex; gap: 10px; }
+        #messageInput {
+            flex: 1;
+            min-height: 44px;
+            max-height: 180px;
+            resize: vertical;
+            border: 1px solid #c7d2fe;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font: inherit;
+            outline: none;
+        }
+        #messageInput:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+        .btn {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
             font-weight: 600;
-            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .btn-primary { color: #fff; background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+        .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-lite { background: #eef2ff; color: #3730a3; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .side {
+            padding: 16px;
+            background: #fcfdff;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .card h3 { color: #4338ca; font-size: 15px; margin-bottom: 8px; }
+        .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; margin: 5px 0; }
+        .kv .k { color: #64748b; }
+        .kv .v { color: #111827; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .badge { font-size: 12px; color: #fff; padding: 3px 8px; border-radius: 999px; }
+        .ready { background: #059669; }
+        .processing { background: #2563eb; }
+        .waiting { background: #d97706; }
+        .error { background: #dc2626; }
+
+        .timeline { display: flex; flex-direction: column; gap: 8px; max-height: 160px; overflow: auto; }
+        .timeline-item {
+            font-size: 12px;
+            border-left: 3px solid #c7d2fe;
+            padding: 5px 8px;
+            background: #f8faff;
+            border-radius: 6px;
+            color: #334155;
         }
 
-        .node-status-pending {
-            background: #e0e0e0;
-            color: #666;
+        .node-list { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow: auto; }
+        .node {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 12px;
+            background: #fff;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 8px;
+            align-items: center;
         }
+        .status { font-size: 11px; padding: 2px 6px; border-radius: 6px; color: #fff; }
+        .pending { background: #9ca3af; }
+        .success { background: #16a34a; }
+        .interrupted { background: #ea580c; }
+        .fail { background: #dc2626; }
 
-        .node-status-processing {
-            background: #2196f3;
-            color: white;
-        }
-
-        .node-status-success {
-            background: #4caf50;
-            color: white;
-        }
-
-        .node-status-interrupted {
-            background: #ff9800;
-            color: white;
-        }
-
-        .node-status-fail {
-            background: #f44336;
-            color: white;
-        }
-
-        .node-type {
-            color: #666;
-            font-size: 11px;
-        }
-
-        .node-cost {
-            margin-left: auto;
-            color: #999;
-            font-size: 11px;
+        @media (max-width: 1100px) {
+            .main { grid-template-columns: 1fr; }
+            .chat-panel { border-right: 0; border-bottom: 1px solid #e5e7eb; }
+            .bubble, .processing-card { max-width: 100%; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>智能对话工作流系统</h1>
-            <p>支持异步工作流处理的智能对话系统</p>
-        </div>
-
-        <div class="main-content">
-            <div class="chat-section">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="welcome-message">
-                        <div class="icon">💬</div>
-                        <p>开始对话吧！</p>
-                    </div>
-                </div>
-
-                <div class="message-input">
-                    <div class="input-group">
-                        <input type="text" id="messageInput" placeholder="输入您的问题..." autocomplete="off">
-                        <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()">发送</button>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn btn-secondary" onclick="clearChat()">清空对话</button>
-                        <button class="btn btn-secondary" onclick="newSession()">New Session</button>
-                        <button class="btn btn-secondary" onclick="refreshStatus()">Refresh Status</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="info-panel">
-                <div class="info-card">
-                    <h3>Session Info</h3>
-                    <p><strong>Session ID:</strong> <span id="sessionId">Loading...</span></p>
-                    <p><strong>Message Count:</strong> <span id="messageCount">0</span></p>
-                    <p><strong>Status:</strong> <span id="sessionStatus" class="status-badge status-ready">Ready</span></p>
-                </div>
-
-                <div class="info-card">
-                    <h3>Workflow Status</h3>
-                    <p><strong>RunID:</strong> <span id="runId">Not Started</span></p>
-                    <p><strong>Status:</strong> <span id="workflowStatus">Not Started</span></p>
-                </div>
-
-                <div class="info-card" id="workflowProgressCard" style="display: none;">
-                    <div class="workflow-progress">
-                        <div class="workflow-progress-header">
-                            <span class="workflow-progress-title">Workflow Progress</span>
-                            <span class="workflow-progress-percent" id="workflowProgressPercent">0%</span>
-                        </div>
-                        <div class="workflow-progress-bar">
-                            <div class="workflow-progress-fill" id="workflowProgressFill" style="width: 0%;"></div>
-                        </div>
-                        <div class="workflow-steps" id="workflowSteps">
-                            <span class="workflow-step">Data Loading</span>
-                            <span class="workflow-step">Preprocessing</span>
-                            <span class="workflow-step">Feature Extraction</span>
-                            <span class="workflow-step">Model Inference</span>
-                            <span class="workflow-step">Result Generation</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="info-card" id="nodeDetailsCard" style="display: none;">
-                    <div class="node-details">
-                        <div class="node-details-title">Node Execution Details</div>
-                        <div id="nodeList"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div class="container">
+    <div class="header">
+        <h1>智能对话工作流系统</h1>
+        <p>面向数据分析 / 比较 / 离群点 / 控制变量分析的多轮工作流对话</p>
     </div>
 
-    <script>
-        let currentSessionId = null;
-        let currentRunId = null;
-        let pollingInterval = null;
-        let isProcessing = false;
+    <div class="main">
+        <section class="chat-panel">
+            <div class="chat-toolbar">
+                <div class="hint">提示：中断后补充信息会自动恢复原 run_id，不会新建流程。</div>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome">
+                    <div class="icon">💬</div>
+                    <p>开始输入你的分析问题，例如：比较近30天各地区销量并找离群点。</p>
+                </div>
+            </div>
 
-        window.onload = function() {
-            initSession();
-            document.getElementById("messageInput").addEventListener("keypress", function(e) {
-                if (e.key === "Enter") {
-                    sendMessage();
-                }
-            });
-        };
+            <div class="input-area">
+                <div class="input-row">
+                    <textarea id="messageInput" placeholder="请输入你的问题或补充说明..."></textarea>
+                    <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()">发送</button>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-lite" onclick="clearChat()">清空对话</button>
+                    <button class="btn btn-lite" onclick="newSession()">新会话</button>
+                    <button class="btn btn-lite" onclick="refreshStatus()">刷新状态</button>
+                </div>
+            </div>
+        </section>
 
-        async function initSession() {
-            try {
-                const response = await fetch("/api/session");
-                const data = await response.json();
+        <aside class="side">
+            <div class="card">
+                <h3>会话状态</h3>
+                <div class="kv"><span class="k">Session</span><span class="v" id="sessionId">-</span></div>
+                <div class="kv"><span class="k">消息数</span><span class="v" id="messageCount">0</span></div>
+                <div class="kv"><span class="k">状态</span><span class="v"><span class="badge ready" id="sessionStatus">Ready</span></span></div>
+            </div>
 
-                if (data.success) {
-                    currentSessionId = data.session_id;
-                    updateSessionInfo(data.session_id);
-                    await loadMessages();
-                }
-            } catch (error) {
-                console.error("Init session failed:", error);
-            }
+            <div class="card">
+                <h3>工作流</h3>
+                <div class="kv"><span class="k">RunID</span><span class="v" id="runId">Not Started</span></div>
+                <div class="kv"><span class="k">状态</span><span class="v" id="workflowStatus">Not Started</span></div>
+                <div class="kv"><span class="k">进度</span><span class="v" id="workflowProgressPercent">0%</span></div>
+                <div class="bar"><div class="bar-fill" id="workflowProgressFill"></div></div>
+            </div>
+
+            <div class="card" id="progressDeltaCard" style="display:none;">
+                <h3>进度变更（基于连续状态对比）</h3>
+                <div class="timeline" id="progressTimeline"></div>
+            </div>
+
+            <div class="card" id="nodeDetailsCard" style="display:none;">
+                <h3>节点明细</h3>
+                <div class="node-list" id="nodeList"></div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script>
+let currentSessionId = null;
+let currentRunId = null;
+let pollingInterval = null;
+let isProcessing = false;
+
+window.onload = function () {
+    initSession();
+    const input = document.getElementById("messageInput");
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
         }
+    });
+};
 
-        async function loadMessages() {
-            try {
-                const response = await fetch("/api/messages");
-                const data = await response.json();
-
-                if (data.success && data.messages.length > 0) {
-                    displayMessages(data.messages);
-                    updateMessageCount(data.messages.length);
-                }
-            } catch (error) {
-                console.error("Load messages failed:", error);
-            }
+async function initSession() {
+    try {
+        const res = await fetch("/api/session");
+        const data = await res.json();
+        if (data.success) {
+            currentSessionId = data.session_id;
+            updateSessionInfo(data.session_id);
+            await loadMessages();
         }
+    } catch (e) {
+        console.error("Init session failed:", e);
+    }
+}
 
-        async function sendMessage() {
-            const input = document.getElementById("messageInput");
-            const message = input.value.trim();
-
-            if (!message || isProcessing) return;
-
-            input.value = "";
-
-            addMessageToUI("user", message);
-            setProcessingState(true);
-
-            try {
-                const response = await fetch("/api/send", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ message: message })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    currentRunId = data.run_id;
-                    updateRunId(data.run_id);
-                    updateWorkflowStatus("processing", "Processing...");
-                    startWorkflowPolling(data.run_id);
-                } else {
-                    setProcessingState(false);
-                    // 显示友好的错误消息
-                    addMessageToUI("assistant", "⚠️ " + data.error);
-                }
-            } catch (error) {
-                console.error("Send message failed:", error);
-                setProcessingState(false);
-                addMessageToUI("assistant", "Network error, please try again");
-            }
+async function loadMessages() {
+    try {
+        const res = await fetch("/api/messages");
+        const data = await res.json();
+        if (data.success) {
+            displayMessages(data.messages || []);
+            updateMessageCount((data.messages || []).length);
         }
+    } catch (e) {
+        console.error("Load messages failed:", e);
+    }
+}
 
-        function startWorkflowPolling(runId) {
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-            }
+async function sendMessage() {
+    const input = document.getElementById("messageInput");
+    const text = input.value.trim();
+    if (!text || isProcessing) return;
 
-            addProcessingMessage();
-            pollWorkflowStatus(runId);
+    input.value = "";
+    addMessageToUI("user", text);
+    setProcessingState(true);
 
-            pollingInterval = setInterval(function() {
-                pollWorkflowStatus(runId);
-            }, 2000);
-        }
+    try {
+        const res = await fetch("/api/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
 
-        async function pollWorkflowStatus(runId) {
-            try {
-                const response = await fetch("/api/workflow/" + runId + "/status");
-                const data = await response.json();
-
-                if (!data || !data.success) {
-                    return;
-                }
-
-                if (data.status === "processing") {
-                    updateProcessingUI(data);
-                    updateWorkflowProgress(data);
-                    updateNodeDetails(data);
-                } else if (data.status === "interrupted") {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
-                    removeProcessingMessage();
-                    addMessageToUI("assistant", data.message || "工作流被中断，需要更多信息");
-                    updateWorkflowStatus("waiting", "Interrupted");
-                    setProcessingState(false);
-                    hideNodeDetails();
-                } else if (data.status === "success") {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
-                    removeProcessingMessage();
-                    addMessageToUI("assistant", data.message || "工作流执行完成");
-                    updateWorkflowStatus("success", "Completed");
-                    setProcessingState(false);
-                    hideNodeDetails();
-                } else if (data.status === "fail") {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
-                    removeProcessingMessage();
-                    addMessageToUI("assistant", data.message || "工作流执行失败");
-                    updateWorkflowStatus("fail", "Failed");
-                    setProcessingState(false);
-                    hideNodeDetails();
-                }
-
-            } catch (error) {
-                console.error("Poll workflow status failed:", error);
-            }
-        }
-
-        function updateProcessingUI(data) {
-            const processingMessage = document.getElementById("currentProcessingMessage");
-            if (processingMessage && data.progress_info) {
-                const currentStep = document.getElementById("processingCurrentStep");
-                const progressBar = document.getElementById("processingProgressBar");
-
-                if (currentStep) {
-                    currentStep.textContent = data.progress_info.current_node || "Processing...";
-                }
-
-                if (progressBar) {
-                    const fill = progressBar.querySelector(".processing-progress-fill");
-                    if (fill) {
-                        fill.style.width = data.progress_info.percentage + "%";
-                    }
-                }
-
-                const progressText = document.getElementById("processingProgressText");
-                if (progressText) {
-                    progressText.textContent = "Step " + (data.progress_info.current_step + 1) + "/" + data.progress_info.total_steps;
-                }
-            }
-        }
-
-        function updateWorkflowProgress(data) {
-            const card = document.getElementById("workflowProgressCard");
-            if (!card) return;
-
-            if (data.status === "processing" && data.progress_info) {
-                card.style.display = "block";
-                document.getElementById("workflowProgressPercent").textContent = data.progress_info.percentage + "%";
-                document.getElementById("workflowProgressFill").style.width = data.progress_info.percentage + "%";
-
-                const steps = document.getElementById("workflowSteps");
-                const stepElements = steps.querySelectorAll(".workflow-step");
-
-                data.progress_info.nodes.forEach(function(node, index) {
-                    if (stepElements[index]) {
-                        stepElements[index].textContent = node;
-
-                        if (index < data.progress_info.current_step - 1) {
-                            stepElements[index].className = "workflow-step completed";
-                        } else if (index === data.progress_info.current_step - 1) {
-                            stepElements[index].className = "workflow-step active";
-                        } else {
-                            stepElements[index].className = "workflow-step";
-                        }
-                    }
-                });
-            } else {
-                card.style.display = "none";
-            }
-        }
-
-        function updateNodeDetails(data) {
-            const card = document.getElementById("nodeDetailsCard");
-            const nodeList = document.getElementById("nodeList");
-
-            if (!card || !nodeList) return;
-
-            if (data.status === "processing" && data.nodes) {
-                card.style.display = "block";
-                nodeList.innerHTML = "";
-
-                const steps = data.steps || [];
-                const nodes = data.nodes || {};
-
-                steps.forEach(function(nodeId, index) {
-                    const node = nodes[nodeId] || {};
-                    const nodeType = node.nodeType || "unknown";
-                    const nodeStatus = node.status || "pending";
-                    const nodeCost = node.costMs || 0;
-
-                    const nodeItem = document.createElement("div");
-                    nodeItem.className = "node-item";
-
-                    // 截取节点ID显示
-                    const shortId = nodeId.substring(0, 12) + "...";
-
-                    nodeItem.innerHTML =
-                        '<span class="node-status-badge node-status-' + nodeStatus + '">' + nodeStatus + "</span>" +
-                        '<span class="node-type">[' + nodeType + "] " + shortId + "</span>" +
-                        '<span class="node-cost">' + nodeCost + "ms</span>';
-
-                    nodeList.appendChild(nodeItem);
-                });
-            } else {
-                card.style.display = "none";
-            }
-        }
-
-        function hideNodeDetails() {
-            const card = document.getElementById("nodeDetailsCard");
-            if (card) {
-                card.style.display = "none";
-            }
-        }
-
-        function addProcessingMessage() {
-            if (document.getElementById("currentProcessingMessage")) {
-                return;
-            }
-
-            const chatMessages = document.getElementById("chatMessages");
-            const welcomeMsg = chatMessages.querySelector(".welcome-message");
-            if (welcomeMsg) {
-                welcomeMsg.remove();
-            }
-
-            const messageDiv = document.createElement("div");
-            messageDiv.id = "currentProcessingMessage";
-            messageDiv.className = "message-processing";
-            messageDiv.innerHTML = 
-                '<div class="processing-spinner"></div>' +
-                '<div class="processing-text">' +
-                    '<div class="processing-current-step" id="processingCurrentStep">Processing...</div>' +
-                    '<div class="processing-progress" id="processingProgressText">Step 1/5</div>' +
-                    '<div class="processing-progress-bar" id="processingProgressBar">' +
-                        '<div class="processing-progress-fill" style="width: 0%;"></div>' +
-                    '</div>' +
-                '</div>';
-
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        function removeProcessingMessage() {
-            const processingMessage = document.getElementById("currentProcessingMessage");
-            if (processingMessage) {
-                processingMessage.remove();
-            }
-        }
-
-        function setProcessingState(processing) {
-            isProcessing = processing;
-            const sendBtn = document.getElementById("sendBtn");
-            const messageInput = document.getElementById("messageInput");
-
-            if (sendBtn) {
-                sendBtn.disabled = processing;
-                sendBtn.textContent = processing ? "Processing..." : "Send";
-            }
-
-            if (messageInput) {
-                messageInput.disabled = processing;
-            }
-        }
-
-        async function refreshStatus() {
-            try {
-                const response = await fetch("/api/refresh", {
-                    method: "POST"
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    displayMessages(data.messages);
-
-                    updateMessageCount(data.messages.length);
-                    updateSessionStatus(data.waiting_for_input);
-                    updateRunId(data.current_run_id || "Not Started");
-
-                    if (!data.current_run_id) {
-                        updateWorkflowStatus("none", "Not Started");
-                        hideWorkflowProgress();
-                        hideNodeDetails();
-                    }
-                }
-            } catch (error) {
-                console.error("Refresh status failed:", error);
-            }
-        }
-
-        function hideWorkflowProgress() {
-            const card = document.getElementById("workflowProgressCard");
-            if (card) {
-                card.style.display = "none";
-            }
-        }
-
-        async function clearChat() {
-            if (!confirm("Are you sure to clear the conversation?")) return;
-
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-                pollingInterval = null;
-            }
-
+        if (!data.success) {
             setProcessingState(false);
-
-            try {
-                const response = await fetch("/api/clear", {
-                    method: "POST"
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    currentSessionId = data.session_id;
-                    document.getElementById("chatMessages").innerHTML = 
-                        '<div class="welcome-message">' +
-                            '<div class="icon">💬</div>' +
-                            '<p>New session created</p>' +
-                        '</div>';
-                    updateSessionInfo(data.session_id);
-                    updateMessageCount(0);
-                    updateRunId("Not Started");
-                    updateWorkflowStatus("none", "Not Started");
-                    hideWorkflowProgress();
-                    hideNodeDetails();
-                }
-            } catch (error) {
-                console.error("Clear chat failed:", error);
-            }
+            addMessageToUI("assistant", "⚠️ " + (data.error || "发送失败"));
+            return;
         }
 
-        async function newSession() {
-            try {
-                const response = await fetch("/api/session", {
-                    method: "POST"
-                });
-                const data = await response.json();
+        currentRunId = data.run_id;
+        updateRunId(data.run_id);
+        updateWorkflowStatus("processing", "Processing...");
+        startWorkflowPolling(data.run_id);
+    } catch (e) {
+        console.error("Send message failed:", e);
+        setProcessingState(false);
+        addMessageToUI("assistant", "网络异常，请稍后重试");
+    }
+}
 
-                if (data.success) {
-                    currentSessionId = data.session_id;
-                    updateSessionInfo(data.session_id);
-                    addMessageToUI("assistant", "Hi! I am an intelligent assistant, please tell me what you need help with?");
-                    updateMessageCount(1);
-                }
-            } catch (error) {
-                console.error("Create session failed:", error);
-            }
+function startWorkflowPolling(runId) {
+    if (pollingInterval) clearInterval(pollingInterval);
+    addProcessingMessage();
+    pollWorkflowStatus(runId);
+    pollingInterval = setInterval(() => pollWorkflowStatus(runId), 1800);
+}
+
+async function pollWorkflowStatus(runId) {
+    try {
+        const res = await fetch(`/api/workflow/${runId}/status`);
+        const data = await res.json();
+        if (!data || !data.success) return;
+
+        if (data.status === "processing") {
+            updateProcessingUI(data);
+            updateWorkflowProgress(data);
+            updateNodeDetails(data);
+            return;
         }
 
-        function displayMessages(messages) {
-            const chatMessages = document.getElementById("chatMessages");
-            chatMessages.innerHTML = "";
-
-            messages.forEach(function(msg) {
-                addMessageToUI(msg.role, msg.content);
-            });
-
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+        // 终态或中断时统一走 refresh，避免前端重复插入消息
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
         }
 
-        function addMessageToUI(role, content) {
-            const chatMessages = document.getElementById("chatMessages");
+        removeProcessingMessage();
+        setProcessingState(false);
 
-            const welcomeMsg = chatMessages.querySelector(".welcome-message");
-            if (welcomeMsg) {
-                welcomeMsg.remove();
-            }
-
-            const messageDiv = document.createElement("div");
-            messageDiv.className = "message " + role;
-
-            messageDiv.innerHTML = '<div class="message-content">' + escapeHtml(content) + '</div>';
-
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (data.status === "interrupted") {
+            updateWorkflowStatus("waiting", "Interrupted");
+        } else if (data.status === "success") {
+            updateWorkflowStatus("ready", "Completed");
+            hideNodeDetails();
+        } else if (data.status === "fail") {
+            updateWorkflowStatus("fail", "Failed");
+            hideNodeDetails();
         }
 
-        function updateSessionInfo(sessionId) {
-            document.getElementById("sessionId").textContent = sessionId.substring(0, 20) + "...";
-        }
+        await refreshStatus();
+    } catch (e) {
+        console.error("Poll workflow status failed:", e);
+    }
+}
 
-        function updateMessageCount(count) {
-            document.getElementById("messageCount").textContent = count;
-        }
+function updateProcessingUI(data) {
+    const msg = document.getElementById("currentProcessingMessage");
+    if (!msg || !data.progress_info) return;
 
-        function updateSessionStatus(waiting) {
-            const statusElement = document.getElementById("sessionStatus");
-            if (waiting) {
-                statusElement.textContent = "Waiting for more info";
-                statusElement.className = "status-badge status-waiting";
-            } else {
-                statusElement.textContent = "Ready";
-                statusElement.className = "status-badge status-ready";
-            }
-        }
+    const info = data.progress_info;
+    document.getElementById("processingCurrentStep").textContent = info.current_node || "processing";
+    document.getElementById("processingProgressText").textContent =
+        `已观测进度 ${info.percentage}% · 变更 ${info.status_changes_count || 0} 次`;
+    document.querySelector("#processingProgressBar .bar-fill").style.width = `${info.percentage || 0}%`;
+}
 
-        function updateRunId(runId) {
-            document.getElementById("runId").textContent = runId ? runId.substring(0, 30) + "..." : "Not Started";
-            currentRunId = runId;
-        }
+function updateWorkflowProgress(data) {
+    if (!data.progress_info) return;
+    const info = data.progress_info;
+    document.getElementById("workflowProgressPercent").textContent = `${info.percentage || 0}%`;
+    document.getElementById("workflowProgressFill").style.width = `${info.percentage || 0}%`;
 
-        function updateWorkflowStatus(status, text) {
-            const statusElement = document.getElementById("workflowStatus");
-            statusElement.textContent = text;
+    const card = document.getElementById("progressDeltaCard");
+    const timeline = document.getElementById("progressTimeline");
 
-            const sessionStatus = document.getElementById("sessionStatus");
-            if (status === "processing") {
-                sessionStatus.className = "status-badge status-processing";
-            } else if (status === "waiting") {
-                sessionStatus.className = "status-badge status-waiting";
-            } else if (status === "fail") {
-                sessionStatus.className = "status-badge status-error";
-            } else {
-                sessionStatus.className = "status-badge status-ready";
-            }
-        }
+    const changes = info.status_changes || [];
+    if (changes.length > 0 || info.new_nodes_count > 0) {
+        card.style.display = "block";
+    }
 
-        function escapeHtml(text) {
-            const div = document.createElement("div");
-            div.textContent = text;
-            return div.innerHTML;
-        }
-    </script>
+    if (info.new_nodes_count > 0) {
+        prependTimeline(`发现 ${info.new_nodes_count} 个新节点`);
+    }
+
+    changes.forEach(c => {
+        prependTimeline(`节点 ${c.nodeType} 状态 ${c.from} → ${c.to}`);
+    });
+
+    function prependTimeline(text) {
+        const item = document.createElement("div");
+        item.className = "timeline-item";
+        item.textContent = text;
+        timeline.prepend(item);
+        while (timeline.children.length > 12) timeline.removeChild(timeline.lastChild);
+    }
+}
+
+function updateNodeDetails(data) {
+    const card = document.getElementById("nodeDetailsCard");
+    const list = document.getElementById("nodeList");
+    if (!data.nodes) return;
+
+    card.style.display = "block";
+    list.innerHTML = "";
+
+    const steps = data.steps && data.steps.length ? data.steps : Object.keys(data.nodes);
+    steps.forEach(nodeId => {
+        const n = data.nodes[nodeId] || {};
+        const status = n.status || "pending";
+        const node = document.createElement("div");
+        node.className = "node";
+        const shortId = nodeId.length > 14 ? `${nodeId.slice(0, 14)}...` : nodeId;
+        node.innerHTML =
+            `<span class="status ${status}">${status}</span>` +
+            `<span>[${n.nodeType || "unknown"}] ${shortId}</span>` +
+            `<span>${n.costMs || 0}ms</span>`;
+        list.appendChild(node);
+    });
+}
+
+function hideNodeDetails() {
+    document.getElementById("nodeDetailsCard").style.display = "none";
+}
+
+function addProcessingMessage() {
+    if (document.getElementById("currentProcessingMessage")) return;
+    const chat = document.getElementById("chatMessages");
+    const welcome = chat.querySelector(".welcome");
+    if (welcome) welcome.remove();
+
+    const box = document.createElement("div");
+    box.className = "processing-card";
+    box.id = "currentProcessingMessage";
+    box.innerHTML =
+        `<div class="processing-title" id="processingCurrentStep">正在处理...</div>` +
+        `<div class="bar" id="processingProgressBar"><div class="bar-fill"></div></div>` +
+        `<div class="processing-sub" id="processingProgressText">等待状态回传...</div>`;
+
+    chat.appendChild(box);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function removeProcessingMessage() {
+    const p = document.getElementById("currentProcessingMessage");
+    if (p) p.remove();
+}
+
+function setProcessingState(processing) {
+    isProcessing = processing;
+    const btn = document.getElementById("sendBtn");
+    const input = document.getElementById("messageInput");
+    btn.disabled = processing;
+    btn.textContent = processing ? "处理中..." : "发送";
+    if (!processing) input.focus();
+}
+
+async function refreshStatus() {
+    try {
+        const res = await fetch("/api/refresh", { method: "POST" });
+        const data = await res.json();
+        if (!data.success) return;
+
+        displayMessages(data.messages || []);
+        updateMessageCount((data.messages || []).length);
+        updateSessionStatus(data.waiting_for_input);
+        updateRunId(data.current_run_id || "Not Started");
+    } catch (e) {
+        console.error("Refresh status failed:", e);
+    }
+}
+
+async function clearChat() {
+    if (!confirm("确认清空对话？")) return;
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+    setProcessingState(false);
+
+    try {
+        const res = await fetch("/api/clear", { method: "POST" });
+        const data = await res.json();
+        if (!data.success) return;
+
+        currentSessionId = data.session_id;
+        document.getElementById("chatMessages").innerHTML = '<div class="welcome"><div class="icon">💬</div><p>会话已重置。</p></div>';
+        updateSessionInfo(data.session_id);
+        updateMessageCount(0);
+        updateRunId("Not Started");
+        updateWorkflowStatus("ready", "Not Started");
+        document.getElementById("workflowProgressPercent").textContent = "0%";
+        document.getElementById("workflowProgressFill").style.width = "0%";
+        document.getElementById("progressTimeline").innerHTML = "";
+        document.getElementById("progressDeltaCard").style.display = "none";
+        hideNodeDetails();
+    } catch (e) {
+        console.error("Clear chat failed:", e);
+    }
+}
+
+async function newSession() {
+    try {
+        const res = await fetch("/api/session", { method: "POST" });
+        const data = await res.json();
+        if (!data.success) return;
+
+        currentSessionId = data.session_id;
+        updateSessionInfo(data.session_id);
+        document.getElementById("chatMessages").innerHTML = "";
+        addMessageToUI("assistant", "你好，我可以帮你做数据比较、离群点识别和控制变量分析。请告诉我你的分析目标。");
+        updateMessageCount(1);
+    } catch (e) {
+        console.error("Create session failed:", e);
+    }
+}
+
+function displayMessages(messages) {
+    const chat = document.getElementById("chatMessages");
+    chat.innerHTML = "";
+    if (!messages || messages.length === 0) {
+        chat.innerHTML = '<div class="welcome"><div class="icon">💬</div><p>开始输入你的分析问题。</p></div>';
+        return;
+    }
+    messages.forEach(m => addMessageToUI(m.role, m.content, m.timestamp));
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function addMessageToUI(role, content, timestamp) {
+    const chat = document.getElementById("chatMessages");
+    const welcome = chat.querySelector(".welcome");
+    if (welcome) welcome.remove();
+
+    const msg = document.createElement("div");
+    msg.className = `message ${role}`;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.innerHTML = escapeHtml(content);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString();
+
+    msg.appendChild(bubble);
+    msg.appendChild(meta);
+    chat.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function updateSessionInfo(sessionId) {
+    document.getElementById("sessionId").textContent = sessionId;
+}
+
+function updateMessageCount(count) {
+    document.getElementById("messageCount").textContent = String(count);
+}
+
+function updateSessionStatus(waiting) {
+    const e = document.getElementById("sessionStatus");
+    e.textContent = waiting ? "Waiting Input" : "Ready";
+    e.className = `badge ${waiting ? "waiting" : "ready"}`;
+}
+
+function updateRunId(runId) {
+    currentRunId = runId;
+    document.getElementById("runId").textContent = runId || "Not Started";
+}
+
+function updateWorkflowStatus(status, text) {
+    document.getElementById("workflowStatus").textContent = text;
+    const s = document.getElementById("sessionStatus");
+    if (status === "processing") s.className = "badge processing";
+    else if (status === "waiting") s.className = "badge waiting";
+    else if (status === "fail") s.className = "badge error";
+    else s.className = "badge ready";
+}
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text || "";
+    return div.innerHTML;
+}
+</script>
 </body>
 </html>
