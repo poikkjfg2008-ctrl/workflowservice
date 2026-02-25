@@ -1,0 +1,13 @@
+# Flask Web应用依赖
+# Web框架
+Flask>=3.0.0
+Werkzeug>=3.0.0
+
+# Redis支持（用于代理服务器的异步任务队列）
+redis>=5.0.0
+
+# 异步支持（已包含在其他文件中）
+# asyncio, threading 为Python内置模块
+
+# 原有依赖保留（如果需要运行Gradio版本）
+gradio>=4.0.0
