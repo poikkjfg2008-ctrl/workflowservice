@@ -255,6 +255,8 @@
 let currentSessionId = null;
 let currentRunId = null;
 let pollingInterval = null;
+let autoRefreshInterval = null;
+let autoRefreshEnabled = true;
 let isProcessing = false;
 let lastMessageCount = 0;
 
@@ -268,10 +270,16 @@ window.onload = function () {
         }
     });
 
-    setInterval(() => {
-        if (!isProcessing) refreshStatus();
-    }, 3000);
+    startAutoRefresh();
 };
+
+function startAutoRefresh() {
+    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+    autoRefreshInterval = setInterval(() => {
+        if (!autoRefreshEnabled || isProcessing) return;
+        refreshStatus();
+    }, 3000);
+}
 
 async function initSession() {
     try {
@@ -307,6 +315,7 @@ async function sendMessage() {
     if (!text || isProcessing) return;
 
     input.value = "";
+    autoRefreshEnabled = true;
     addMessageToUI("user", text);
     setProcessingState(true);
 
@@ -368,6 +377,7 @@ async function pollWorkflowStatus(runId) {
             updateWorkflowStatus("waiting", "Interrupted");
         } else if (data.status === "success") {
             updateWorkflowStatus("ready", "Completed");
+            autoRefreshEnabled = false;
             hideNodeDetails();
         } else if (data.status === "fail") {
             updateWorkflowStatus("fail", "Failed");
@@ -553,13 +563,25 @@ async function newSession() {
 
 function displayMessages(messages) {
     const chat = document.getElementById("chatMessages");
+    const stickToBottom = isNearBottom(chat);
+    const previousDistanceToBottom = chat.scrollHeight - chat.scrollTop;
     chat.innerHTML = "";
     if (!messages || messages.length === 0) {
         chat.innerHTML = '<div class="welcome"><div class="icon">💬</div><p>开始输入你的分析问题。</p></div>';
         return;
     }
     messages.forEach(m => addMessageToUI(m.role, m.content, m.timestamp));
-    chat.scrollTop = chat.scrollHeight;
+
+    if (stickToBottom) {
+        chat.scrollTop = chat.scrollHeight;
+        return;
+    }
+
+    chat.scrollTop = Math.max(0, chat.scrollHeight - previousDistanceToBottom);
+}
+
+function isNearBottom(container, threshold = 100) {
+    return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
 }
 
 function addMessageToUI(role, content, timestamp) {
