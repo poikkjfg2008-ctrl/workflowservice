@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from flask import Flask, render_template, request, jsonify
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from config import Config
 from workflow_adapter import runworkflow, getflowinfo, resumeflow
@@ -13,6 +13,121 @@ from async_processor import async_processor
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = Config.SECRET_KEY
+
+
+# run_id -> 上一次状态快照（用于增量进度展示）
+_RUN_SNAPSHOT_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _session_for_run(run_id: str):
+    """根据 run_id 找到对应会话。"""
+    for s in session_manager.get_all_sessions():
+        if s.current_run_id == run_id:
+            return s
+    return None
+
+
+def _status_rank(status: str) -> int:
+    order = {
+        'pending': 0,
+        'processing': 1,
+        'interrupted': 1,
+        'success': 2,
+        'fail': 2,
+    }
+    return order.get(status, 0)
+
+
+def _snapshot_from_workflow_info(workflow_info: Dict[str, Any]) -> Dict[str, Any]:
+    """提取当前工作流快照。"""
+    nodes = workflow_info.get('nodes') or {}
+    steps = workflow_info.get('steps') or list(nodes.keys())
+
+    # 兼容部分图返回：步骤里可能没有全部节点
+    ordered_nodes: List[str] = []
+    for node_id in steps:
+        if node_id in nodes:
+            ordered_nodes.append(node_id)
+    for node_id in nodes.keys():
+        if node_id not in ordered_nodes:
+            ordered_nodes.append(node_id)
+
+    node_statuses = {
+        node_id: (nodes.get(node_id, {}) or {}).get('status', 'pending')
+        for node_id in ordered_nodes
+    }
+
+    return {
+        'workflow_status': workflow_info.get('status', ''),
+        'ordered_nodes': ordered_nodes,
+        'node_statuses': node_statuses,
+    }
+
+
+def _build_progress_info(run_id: str, workflow_info: Dict[str, Any]) -> Dict[str, Any]:
+    """基于前后快照构建增量进度信息。"""
+    current = _snapshot_from_workflow_info(workflow_info)
+    previous = deepcopy(_RUN_SNAPSHOT_CACHE.get(run_id))
+    _RUN_SNAPSHOT_CACHE[run_id] = deepcopy(current)
+
+    ordered_nodes = current['ordered_nodes']
+    node_statuses = current['node_statuses']
+
+    total_steps = len(ordered_nodes)
+    done_count = sum(1 for s in node_statuses.values() if s in {'success', 'fail'})
+    running_count = sum(1 for s in node_statuses.values() if s in {'processing', 'interrupted'})
+
+    if total_steps > 0:
+        percentage = int(((done_count + 0.5 * running_count) / total_steps) * 100)
+        percentage = max(1, min(99, percentage))
+    else:
+        percentage = 1
+
+    current_node = ''
+    for node_id in ordered_nodes:
+        if node_statuses.get(node_id) in {'processing', 'interrupted'}:
+            current_node = node_id
+            break
+    if not current_node and ordered_nodes:
+        current_node = ordered_nodes[min(done_count, total_steps - 1)]
+
+    status_changes = []
+    new_nodes_count = len(ordered_nodes)
+
+    if previous:
+        prev_nodes = set(previous.get('ordered_nodes', []))
+        new_nodes_count = len([node_id for node_id in ordered_nodes if node_id not in prev_nodes])
+        prev_statuses = previous.get('node_statuses', {})
+
+        for node_id in ordered_nodes:
+            cur = node_statuses.get(node_id, 'pending')
+            prev = prev_statuses.get(node_id)
+            if prev is None:
+                continue
+            if prev != cur and _status_rank(cur) >= _status_rank(prev):
+                node = (workflow_info.get('nodes') or {}).get(node_id, {})
+                status_changes.append({
+                    'nodeId': node_id,
+                    'nodeType': node.get('nodeType', 'unknown'),
+                    'from': prev,
+                    'to': cur,
+                })
+
+    progress = {
+        'current_step': done_count,
+        'total_steps': total_steps,
+        'percentage': percentage,
+        'current_node': current_node,
+        'nodes': ordered_nodes,
+        'new_nodes_count': new_nodes_count,
+        'status_changes_count': len(status_changes),
+        'status_changes': status_changes,
+        'is_partial_graph': not bool(workflow_info.get('steps')),
+    }
+
+    # processing 场景最高 99%，最终态由后端状态驱动
+    progress['percentage'] = min(progress['percentage'], 99)
+    return progress
 
 
 # ============================================
