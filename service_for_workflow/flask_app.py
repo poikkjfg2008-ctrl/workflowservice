@@ -158,13 +158,7 @@ async def workflow_callback(session_id: str, result: Dict[str, Any]):
         session.waiting_for_input = False
         session.resume_pending = False
         output = result.get("output", {})
-        if isinstance(output, dict):
-            message = output.get("summary", "工作流执行完成")
-            details = output.get("details", {})
-            if details:
-                message += f"\n\n详细信息：\n{format_dict_to_text(details)}"
-        else:
-            message = str(output) if output else "工作流执行完成"
+        message = format_success_output(output)
 
         session.add_message("assistant", message)
 
@@ -188,6 +182,21 @@ def format_dict_to_text(d: Dict[str, Any], indent: int = 0) -> str:
         else:
             lines.append(f"{prefix}{key}: {value}")
     return "\n".join(lines)
+
+
+def format_success_output(output: Any) -> str:
+    """将 success output 统一格式化为可展示文本。"""
+    if isinstance(output, dict):
+        message = output.get("summary", "工作流执行完成")
+        details = output.get("details")
+        if details and isinstance(details, dict):
+            message += f"\n\n详细信息：\n{format_dict_to_text(details)}"
+        elif details:
+            message += f"\n\n详细信息：\n{details}"
+        return message
+    if output is None:
+        return "工作流执行完成"
+    return str(output)
 
 
 # ============================================
@@ -341,7 +350,8 @@ def get_workflow_status(run_id: str):
         elif status == 'success':
             _RUN_SNAPSHOT_CACHE.pop(run_id, None)
             output = workflow_info.get('output', {})
-            response['message'] = output.get('summary', '工作流执行完成') if isinstance(output, dict) else str(output or '工作流执行完成')
+            response['message'] = format_success_output(output)
+            response['display_output'] = response['message']
 
         elif status == 'fail':
             _RUN_SNAPSHOT_CACHE.pop(run_id, None)
