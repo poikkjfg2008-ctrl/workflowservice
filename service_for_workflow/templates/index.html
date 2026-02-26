@@ -256,6 +256,7 @@ let currentSessionId = null;
 let currentRunId = null;
 let pollingInterval = null;
 let isProcessing = false;
+let lastMessageCount = 0;
 
 window.onload = function () {
     initSession();
@@ -266,6 +267,10 @@ window.onload = function () {
             sendMessage();
         }
     });
+
+    setInterval(() => {
+        if (!isProcessing) refreshStatus();
+    }, 3000);
 };
 
 async function initSession() {
@@ -287,8 +292,9 @@ async function loadMessages() {
         const res = await fetch("/api/messages");
         const data = await res.json();
         if (data.success) {
-            displayMessages(data.messages || []);
-            updateMessageCount((data.messages || []).length);
+            const messages = data.messages || [];
+            displayMessages(messages);
+            updateMessageCount(messages.length);
         }
     } catch (e) {
         console.error("Load messages failed:", e);
@@ -368,7 +374,7 @@ async function pollWorkflowStatus(runId) {
             hideNodeDetails();
         }
 
-        await refreshStatus();
+        await refreshStatus({ expectedStatus: data.status, fallbackMessage: data.message || data.display_output || "" });
     } catch (e) {
         console.error("Poll workflow status failed:", e);
     }
@@ -475,16 +481,26 @@ function setProcessingState(processing) {
     if (!processing) input.focus();
 }
 
-async function refreshStatus() {
+async function refreshStatus(options = {}) {
     try {
         const res = await fetch("/api/refresh", { method: "POST" });
         const data = await res.json();
         if (!data.success) return;
 
-        displayMessages(data.messages || []);
-        updateMessageCount((data.messages || []).length);
+        const messages = data.messages || [];
+        const previousCount = lastMessageCount;
+        displayMessages(messages);
+        updateMessageCount(messages.length);
         updateSessionStatus(data.waiting_for_input);
         updateRunId(data.current_run_id || "Not Started");
+
+        if (options.expectedStatus && options.fallbackMessage && messages.length <= previousCount) {
+            addMessageToUI("assistant", options.fallbackMessage);
+            const refreshed = [...messages, { role: "assistant", content: options.fallbackMessage }];
+            updateMessageCount(refreshed.length);
+            lastMessageCount = refreshed.length;
+            return;
+        }
     } catch (e) {
         console.error("Refresh status failed:", e);
     }
@@ -573,6 +589,7 @@ function updateSessionInfo(sessionId) {
 }
 
 function updateMessageCount(count) {
+    lastMessageCount = count;
     document.getElementById("messageCount").textContent = String(count);
 }
 
