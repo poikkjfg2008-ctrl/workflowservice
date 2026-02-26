@@ -187,8 +187,20 @@ def format_dict_to_text(d: Dict[str, Any], indent: int = 0) -> str:
 def format_success_output(output: Any) -> str:
     """将 success output 统一格式化为可展示文本。"""
     if isinstance(output, dict):
-        message = output.get("summary", "工作流执行完成")
-        details = output.get("details")
+        # 兼容外部系统常见字段命名：summary / message / msg / mes
+        message = (
+            output.get("summary")
+            or output.get("message")
+            or output.get("msg")
+            or output.get("mes")
+            or "工作流执行完成"
+        )
+
+        details = (
+            output.get("details")
+            or output.get("data")
+            or output.get("result")
+        )
         if details and isinstance(details, dict):
             message += f"\n\n详细信息：\n{format_dict_to_text(details)}"
         elif details:
@@ -297,6 +309,21 @@ def refresh_status():
         return jsonify({'success': False, 'error': '无活动会话'}), 404
 
     session = sessions[-1]
+    # 兜底：若工作流已success但回调消息未及时写入，会在刷新接口中补齐一次。
+    if session.current_run_id:
+        try:
+            workflow_info = getflowinfo(session.current_run_id)
+            if workflow_info.get('status') == 'success':
+                success_text = format_success_output(workflow_info.get('output', {}))
+                has_success_msg = any(
+                    msg.role == 'assistant' and msg.content == success_text
+                    for msg in session.messages
+                )
+                if success_text and not has_success_msg:
+                    session.add_message('assistant', success_text)
+        except Exception:
+            pass
+
     messages = [
         {'role': msg.role, 'content': msg.content, 'timestamp': msg.timestamp.isoformat()}
         for msg in session.messages
