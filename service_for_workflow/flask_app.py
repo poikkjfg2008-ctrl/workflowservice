@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from collections import OrderedDict
+import threading
 from flask import Flask, render_template, request, jsonify
 from typing import Dict, Any, List
 
@@ -16,7 +18,26 @@ app.config['SECRET_KEY'] = Config.SECRET_KEY
 
 
 # run_id -> 上一次状态快照（用于增量进度展示）
-_RUN_SNAPSHOT_CACHE: Dict[str, Dict[str, Any]] = {}
+_RUN_SNAPSHOT_CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+_RUN_SNAPSHOT_LOCK = threading.Lock()
+
+
+def _cache_snapshot(run_id: str, snapshot: Dict[str, Any]):
+    with _RUN_SNAPSHOT_LOCK:
+        _RUN_SNAPSHOT_CACHE[run_id] = snapshot
+        _RUN_SNAPSHOT_CACHE.move_to_end(run_id)
+        while len(_RUN_SNAPSHOT_CACHE) > Config.MAX_SNAPSHOT_CACHE_SIZE:
+            _RUN_SNAPSHOT_CACHE.popitem(last=False)
+
+
+def _pop_snapshot(run_id: str):
+    with _RUN_SNAPSHOT_LOCK:
+        _RUN_SNAPSHOT_CACHE.pop(run_id, None)
+
+
+def _clear_snapshot_cache():
+    with _RUN_SNAPSHOT_LOCK:
+        _RUN_SNAPSHOT_CACHE.clear()
 
 
 def _session_for_run(run_id: str):
@@ -67,8 +88,9 @@ def _snapshot_from_workflow_info(workflow_info: Dict[str, Any]) -> Dict[str, Any
 def _build_progress_info(run_id: str, workflow_info: Dict[str, Any]) -> Dict[str, Any]:
     """基于前后快照构建增量进度信息。"""
     current = _snapshot_from_workflow_info(workflow_info)
-    previous = deepcopy(_RUN_SNAPSHOT_CACHE.get(run_id))
-    _RUN_SNAPSHOT_CACHE[run_id] = deepcopy(current)
+    with _RUN_SNAPSHOT_LOCK:
+        previous = deepcopy(_RUN_SNAPSHOT_CACHE.get(run_id))
+    _cache_snapshot(run_id, deepcopy(current))
 
     ordered_nodes = current['ordered_nodes']
     node_statuses = current['node_statuses']
@@ -290,7 +312,7 @@ def send_message():
         session.current_run_id = run_id
         session.resume_pending = False
         session.last_interrupt_msg = None
-        _RUN_SNAPSHOT_CACHE.pop(run_id, None)
+        _pop_snapshot(run_id)
         print(f"[Flask] 启动新工作流: run_id={run_id}, 输入={user_message}")
 
     async_processor.submit_task(
@@ -375,13 +397,13 @@ def get_workflow_status(run_id: str):
                 response['message'] = msg
 
         elif status == 'success':
-            _RUN_SNAPSHOT_CACHE.pop(run_id, None)
+            _pop_snapshot(run_id)
             output = workflow_info.get('output', {})
             response['message'] = format_success_output(output)
             response['display_output'] = response['message']
 
         elif status == 'fail':
-            _RUN_SNAPSHOT_CACHE.pop(run_id, None)
+            _pop_snapshot(run_id)
             response['message'] = workflow_info.get('error', '工作流执行失败')
 
         return jsonify(response)
@@ -394,7 +416,7 @@ def get_workflow_status(run_id: str):
 
 @app.route('/api/clear', methods=['POST'])
 def clear_chat():
-    _RUN_SNAPSHOT_CACHE.clear()
+    _clear_snapshot_cache()
     session = session_manager.create_session()
     return jsonify({'success': True, 'session_id': session.session_id, 'message': '对话已清空'})
 

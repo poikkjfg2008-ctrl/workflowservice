@@ -19,6 +19,11 @@ class Config:
 
     # Session
     MAX_SESSIONS = int(os.getenv("MAX_SESSIONS", "1000"))
+    MAX_MESSAGES_PER_SESSION = int(os.getenv("MAX_MESSAGES_PER_SESSION", "200"))
+
+    # Memory/cache protection
+    MAX_SNAPSHOT_CACHE_SIZE = int(os.getenv("MAX_SNAPSHOT_CACHE_SIZE", "5000"))
+    MAX_TASK_HISTORY = int(os.getenv("MAX_TASK_HISTORY", "5000"))
 
     # Workflow
     WORKFLOW_BACKEND = os.getenv("WORKFLOW_BACKEND", "mock")
