@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session as flask_session
 from typing import Dict, Any, List
 
 from config import Config
@@ -13,6 +13,7 @@ from async_processor import async_processor
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = Config.SECRET_KEY
+_CLIENT_SESSION_KEY = 'workflow_session_id'
 
 
 # run_id -> 上一次状态快照（用于增量进度展示）
@@ -25,6 +26,24 @@ def _session_for_run(run_id: str):
         if s.current_run_id == run_id:
             return s
     return None
+
+
+def _get_or_create_client_session(force_new: bool = False):
+    """按设备（浏览器 cookie）获取或创建会话。"""
+    if force_new:
+        session = session_manager.create_session()
+        flask_session[_CLIENT_SESSION_KEY] = session.session_id
+        return session
+
+    session_id = flask_session.get(_CLIENT_SESSION_KEY)
+    if session_id:
+        session = session_manager.get_session(session_id)
+        if session:
+            return session
+
+    session = session_manager.create_session()
+    flask_session[_CLIENT_SESSION_KEY] = session.session_id
+    return session
 
 
 def _status_rank(status: str) -> int:
@@ -223,11 +242,10 @@ def index():
 @app.route('/api/session', methods=['GET', 'POST'])
 def handle_session():
     if request.method == 'POST':
-        session = session_manager.create_session()
+        session = _get_or_create_client_session(force_new=True)
         return jsonify({'success': True, 'session_id': session.session_id, 'message': '会话已创建'})
 
-    sessions = session_manager.get_all_sessions()
-    session = sessions[-1] if sessions else session_manager.create_session()
+    session = _get_or_create_client_session()
     return jsonify({
         'success': True,
         'session_id': session.session_id,
@@ -239,11 +257,7 @@ def handle_session():
 
 @app.route('/api/messages', methods=['GET'])
 def get_messages():
-    sessions = session_manager.get_all_sessions()
-    if not sessions:
-        return jsonify({'success': True, 'messages': []})
-
-    session = sessions[-1]
+    session = _get_or_create_client_session()
     messages = [
         {'role': msg.role, 'content': msg.content, 'timestamp': msg.timestamp.isoformat()}
         for msg in session.messages
@@ -260,8 +274,7 @@ def send_message():
     if not user_message:
         return jsonify({'success': False, 'error': '消息不能为空'}), 400
 
-    sessions = session_manager.get_all_sessions()
-    session = sessions[-1] if sessions else session_manager.create_session()
+    session = _get_or_create_client_session()
 
     if session.waiting_for_input and session.current_run_id:
         session.add_message("user", user_message)
@@ -304,15 +317,13 @@ def send_message():
 
 @app.route('/api/refresh', methods=['POST'])
 def refresh_status():
-    sessions = session_manager.get_all_sessions()
-    if not sessions:
-        return jsonify({'success': False, 'error': '无活动会话'}), 404
-
-    session = sessions[-1]
+    session = _get_or_create_client_session()
+    workflow_status = 'not_started'
     # 兜底：若工作流已success但回调消息未及时写入，会在刷新接口中补齐一次。
     if session.current_run_id:
         try:
             workflow_info = getflowinfo(session.current_run_id)
+            workflow_status = workflow_info.get('status', 'not_started')
             if workflow_info.get('status') == 'success':
                 success_text = format_success_output(workflow_info.get('output', {}))
                 has_success_msg = any(
@@ -334,7 +345,8 @@ def refresh_status():
         'messages': messages,
         'session_id': session.session_id,
         'waiting_for_input': session.waiting_for_input,
-        'current_run_id': session.current_run_id
+        'current_run_id': session.current_run_id,
+        'workflow_status': workflow_status,
     })
 
 
@@ -394,8 +406,7 @@ def get_workflow_status(run_id: str):
 
 @app.route('/api/clear', methods=['POST'])
 def clear_chat():
-    _RUN_SNAPSHOT_CACHE.clear()
-    session = session_manager.create_session()
+    session = _get_or_create_client_session(force_new=True)
     return jsonify({'success': True, 'session_id': session.session_id, 'message': '对话已清空'})
 
 
