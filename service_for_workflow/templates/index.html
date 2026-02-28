@@ -259,6 +259,7 @@ let autoRefreshInterval = null;
 let autoRefreshEnabled = true;
 let isProcessing = false;
 let lastMessageCount = 0;
+let workflowState = "not_started";
 const INITIAL_CONVERSATION_SAMPLE = `请基于以下业务背景给我一份分析方案：
 
 1) 分析目标（请改成你的目标）：【例如：找出最近30天华东地区销量下滑最明显的产品】
@@ -283,7 +284,7 @@ window.onload = function () {
 function startAutoRefresh() {
     if (autoRefreshInterval) clearInterval(autoRefreshInterval);
     autoRefreshInterval = setInterval(() => {
-        if (!autoRefreshEnabled || isProcessing) return;
+        if (!autoRefreshEnabled || isProcessing || workflowState === "processing") return;
         refreshStatus();
     }, 3000);
 }
@@ -391,6 +392,7 @@ async function pollWorkflowStatus(runId) {
             updateWorkflowStatus("waiting", "Interrupted");
         } else if (data.status === "success") {
             updateWorkflowStatus("ready", "Completed");
+            updateWorkflowProgress(data);
             autoRefreshEnabled = false;
             hideNodeDetails();
         } else if (data.status === "fail") {
@@ -416,6 +418,11 @@ function updateProcessingUI(data) {
 }
 
 function updateWorkflowProgress(data) {
+    if (data.status === "success") {
+        document.getElementById("workflowProgressPercent").textContent = "100%";
+        document.getElementById("workflowProgressFill").style.width = "100%";
+        return;
+    }
     if (!data.progress_info) return;
     const info = data.progress_info;
     document.getElementById("workflowProgressPercent").textContent = `${info.percentage || 0}%`;
@@ -515,7 +522,8 @@ async function refreshStatus(options = {}) {
         const previousCount = lastMessageCount;
         displayMessages(messages);
         updateMessageCount(messages.length);
-        updateSessionStatus(data.waiting_for_input);
+        workflowState = data.workflow_status || workflowState;
+        syncSessionAndWorkflowStatus(data);
         updateRunId(data.current_run_id || "Not Started");
 
         if (options.expectedStatus && options.fallbackMessage && messages.length <= previousCount) {
@@ -587,7 +595,7 @@ function displayMessages(messages) {
         applyInitialSample();
         return;
     }
-    messages.forEach(m => addMessageToUI(m.role, m.content, m.timestamp));
+    messages.forEach(m => addMessageToUI(m.role, m.content, m.timestamp, { autoScroll: false }));
 
     if (stickToBottom) {
         chat.scrollTop = chat.scrollHeight;
@@ -601,7 +609,8 @@ function isNearBottom(container, threshold = 100) {
     return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
 }
 
-function addMessageToUI(role, content, timestamp) {
+function addMessageToUI(role, content, timestamp, options = {}) {
+    const autoScroll = options.autoScroll !== false;
     const chat = document.getElementById("chatMessages");
     const welcome = chat.querySelector(".welcome");
     if (welcome) welcome.remove();
@@ -620,7 +629,37 @@ function addMessageToUI(role, content, timestamp) {
     msg.appendChild(bubble);
     msg.appendChild(meta);
     chat.appendChild(msg);
-    chat.scrollTop = chat.scrollHeight;
+    if (autoScroll) {
+        chat.scrollTop = chat.scrollHeight;
+    }
+}
+
+function syncSessionAndWorkflowStatus(data) {
+    const workflow = data.workflow_status || "not_started";
+    if (workflow === "processing") {
+        updateWorkflowStatus("processing", "Processing...");
+        updateSessionStatus(false, "Processing");
+        return;
+    }
+    if (workflow === "success") {
+        updateWorkflowStatus("ready", "Completed");
+        updateSessionStatus(false, "Ready");
+        document.getElementById("workflowProgressPercent").textContent = "100%";
+        document.getElementById("workflowProgressFill").style.width = "100%";
+        return;
+    }
+    if (workflow === "interrupted") {
+        updateWorkflowStatus("waiting", "Interrupted");
+        updateSessionStatus(true, "Waiting Input");
+        return;
+    }
+    if (workflow === "fail") {
+        updateWorkflowStatus("fail", "Failed");
+        updateSessionStatus(false, "Failed");
+        return;
+    }
+    updateWorkflowStatus("ready", "Not Started");
+    updateSessionStatus(Boolean(data.waiting_for_input));
 }
 
 function updateSessionInfo(sessionId) {
@@ -632,9 +671,19 @@ function updateMessageCount(count) {
     document.getElementById("messageCount").textContent = String(count);
 }
 
-function updateSessionStatus(waiting) {
+function updateSessionStatus(waiting, customText = "") {
     const e = document.getElementById("sessionStatus");
-    e.textContent = waiting ? "Waiting Input" : "Ready";
+    if (customText === "Processing") {
+        e.textContent = customText;
+        e.className = "badge processing";
+        return;
+    }
+    if (customText === "Failed") {
+        e.textContent = customText;
+        e.className = "badge error";
+        return;
+    }
+    e.textContent = customText || (waiting ? "Waiting Input" : "Ready");
     e.className = `badge ${waiting ? "waiting" : "ready"}`;
 }
 
@@ -644,6 +693,7 @@ function updateRunId(runId) {
 }
 
 function updateWorkflowStatus(status, text) {
+    workflowState = status;
     document.getElementById("workflowStatus").textContent = text;
     const s = document.getElementById("sessionStatus");
     if (status === "processing") s.className = "badge processing";
