@@ -259,6 +259,13 @@ let autoRefreshInterval = null;
 let autoRefreshEnabled = true;
 let isProcessing = false;
 let lastMessageCount = 0;
+const INITIAL_CONVERSATION_SAMPLE = `请基于以下业务背景给我一份分析方案：
+
+1) 分析目标（请改成你的目标）：【例如：找出最近30天华东地区销量下滑最明显的产品】
+2) 关注指标（请改成你的指标）：【例如：销量、客单价、退货率】
+3) 对比维度（请改成你的维度）：【例如：地区、渠道、新老客】
+4) 时间范围（请改成你的时间范围）：【例如：2024-01-01 到 2024-01-30】
+5) 输出要求（请改成你的输出形式）：【例如：先给结论，再给关键原因和后续动作建议】`;
 
 window.onload = function () {
     initSession();
@@ -279,6 +286,13 @@ function startAutoRefresh() {
         if (!autoRefreshEnabled || isProcessing) return;
         refreshStatus();
     }, 3000);
+}
+
+function applyInitialSample(force = false) {
+    const input = document.getElementById("messageInput");
+    if (!input) return;
+    if (!force && input.value.trim().length > 0) return;
+    input.value = INITIAL_CONVERSATION_SAMPLE;
 }
 
 async function initSession() {
@@ -540,6 +554,7 @@ async function clearChat() {
         document.getElementById("progressTimeline").innerHTML = "";
         document.getElementById("progressDeltaCard").style.display = "none";
         hideNodeDetails();
+        applyInitialSample(true);
     } catch (e) {
         console.error("Clear chat failed:", e);
     }
@@ -556,6 +571,7 @@ async function newSession() {
         document.getElementById("chatMessages").innerHTML = "";
         addMessageToUI("assistant", "你好，我可以帮你做数据比较、离群点识别和控制变量分析。请告诉我你的分析目标。");
         updateMessageCount(1);
+        applyInitialSample(true);
     } catch (e) {
         console.error("Create session failed:", e);
     }
@@ -568,6 +584,7 @@ function displayMessages(messages) {
     chat.innerHTML = "";
     if (!messages || messages.length === 0) {
         chat.innerHTML = '<div class="welcome"><div class="icon">💬</div><p>开始输入你的分析问题。</p></div>';
+        applyInitialSample();
         return;
     }
     messages.forEach(m => addMessageToUI(m.role, m.content, m.timestamp));
