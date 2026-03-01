@@ -80,6 +80,34 @@
             border: 1px solid #e5e7eb;
             border-bottom-left-radius: 5px;
         }
+        .bubble p { margin: 0 0 8px; }
+        .bubble p:last-child { margin-bottom: 0; }
+        .bubble ul, .bubble ol { margin: 6px 0 8px 22px; }
+        .bubble li { margin: 2px 0; }
+        .bubble pre {
+            margin: 8px 0;
+            padding: 10px;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+        .bubble code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: #eef2ff;
+            color: #312e81;
+            border-radius: 4px;
+            padding: 1px 4px;
+            font-size: .92em;
+        }
+        .bubble pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        .bubble a { color: #4338ca; text-decoration: underline; }
         .meta { font-size: 11px; color: #6b7280; }
 
         .processing-card {
@@ -620,7 +648,7 @@ function addMessageToUI(role, content, timestamp, options = {}) {
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
-    bubble.innerHTML = escapeHtml(content);
+    bubble.innerHTML = renderMessageContent(content, role);
 
     const meta = document.createElement("div");
     meta.className = "meta";
@@ -700,6 +728,102 @@ function updateWorkflowStatus(status, text) {
     else if (status === "waiting") s.className = "badge waiting";
     else if (status === "fail") s.className = "badge error";
     else s.className = "badge ready";
+}
+
+
+function renderMessageContent(content, role) {
+    const raw = (content || "").trimEnd();
+    if (!raw) return "";
+    if (role === "user") {
+        return escapeHtml(raw).replace(/\n/g, "<br>");
+    }
+    return renderMarkdown(raw);
+}
+
+function renderMarkdown(text) {
+    const lines = text.split("\n");
+    const htmlParts = [];
+    let inCodeBlock = false;
+    let codeBuffer = [];
+    let inList = false;
+
+    const flushCodeBlock = () => {
+        if (!codeBuffer.length) return;
+        htmlParts.push(`<pre><code>${escapeHtml(codeBuffer.join("\n"))}</code></pre>`);
+        codeBuffer = [];
+    };
+
+    const closeList = () => {
+        if (!inList) return;
+        htmlParts.push("</ul>");
+        inList = false;
+    };
+
+    for (const line of lines) {
+        const fence = line.match(/^```/);
+        if (fence) {
+            if (inCodeBlock) {
+                flushCodeBlock();
+                inCodeBlock = false;
+            } else {
+                closeList();
+                inCodeBlock = true;
+            }
+            continue;
+        }
+
+        if (inCodeBlock) {
+            codeBuffer.push(line);
+            continue;
+        }
+
+        const trimmed = line.trim();
+        if (!trimmed) {
+            closeList();
+            continue;
+        }
+
+        const listMatch = line.match(/^\s*[-*]\s+(.+)$/);
+        if (listMatch) {
+            if (!inList) {
+                htmlParts.push("<ul>");
+                inList = true;
+            }
+            htmlParts.push(`<li>${renderInlineMarkdown(listMatch[1])}</li>`);
+            continue;
+        }
+
+        closeList();
+
+        const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+)$/);
+        if (heading) {
+            const level = heading[1].length;
+            htmlParts.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+        }
+
+        htmlParts.push(`<p>${renderInlineMarkdown(line)}</p>`);
+    }
+
+    if (inCodeBlock) flushCodeBlock();
+    closeList();
+
+    return htmlParts.join("") || escapeHtml(text).replace(/\n/g, "<br>");
+}
+
+function renderInlineMarkdown(text) {
+    let rendered = escapeHtml(text || "");
+
+    rendered = rendered.replace(/`([^`]+)`/g, "<code>$1</code>");
+    rendered = rendered.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    rendered = rendered.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    rendered = rendered.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    rendered = rendered.replace(/(^|\s)(https?:\/\/[\w\-._~:/?#[\]@!$&()*+,;=%]+)/g, (m, prefix, url) => {
+        if (m.includes('href=')) return m;
+        return `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+    });
+
+    return rendered;
 }
 
 function escapeHtml(text) {
